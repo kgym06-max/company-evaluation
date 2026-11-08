@@ -2,29 +2,47 @@
 
 企業を9項目・100点満点で比較するための静的Webアプリです。
 
-## 公開方法（GitHub Pages）
+## 公開URL
+
+https://kgym06-max.github.io/company-evaluation/
+
+## GitHub Pagesの設定
 
 1. GitHubでこのリポジトリを開く
 2. **Settings → Pages**
-3. Build and deployment の Source を **Deploy from a branch** にする
+3. Source を **Deploy from a branch** にする
 4. Branch を **main**、フォルダを **/(root)** にして Save
-5. 数分後に表示される Pages URL を開く
 
-## 現在の機能
+## 主な機能
 
 - 企業の登録・編集・削除、検索・並び替え
 - 9項目100点満点の重み付き評価
 - 未評価と0点の区別、評価途中の暫定スコア
 - レーダーチャート・項目別ゲージ
 - 10段階評価の共通基準
-- 福利厚生の制度を自由に追加・編集・削除
+- 福利厚生制度の自由な追加・編集・削除
 - 項目別詳細メモ、情報源URL、調査日、情報種別
 - JSON形式のデータ書き出し・読み込み
-- ブラウザ内への自動保存（localStorage）
+- ブラウザ内自動保存とSupabaseクラウド同期
 
-## 保存・ログインについて
+## ログイン・クラウド保存
 
-現バージョンの保存先は利用中のブラウザ内です。別端末との同期やログイン機能はまだ有効ではありません。クラウド保存を実装するには、SupabaseプロジェクトのURLと公開用anon keyを設定し、Auth・テーブル・Row Level Securityを構成する必要があります。秘密鍵（service_role key）はブラウザに設定しないでください。
+Supabaseプロジェクトは作成済み（東京リージョン）。メールアドレス＋パスワードの新規登録、ログイン、ログアウト、パスワード再設定に対応しています。ログイン後はユーザーごとに企業データをクラウド保存し、RLSで他ユーザーのデータを読み書きできないようにしています。
+
+初回ログイン時、端末に既存データがあればクラウドへの移行を確認します。クラウドと端末の両方にデータがある場合は、統合またはクラウドのみを選べます。端末データは移行時に自動削除しません。
+
+### Supabase Authの初期設定（初回のみ）
+
+Supabase Dashboard の **Authentication → URL Configuration** で以下を設定してください。
+
+- Site URL: `https://kgym06-max.github.io/company-evaluation/`
+- Redirect URLs に同じURLを追加
+
+メール確認を有効にしている場合、新規登録後に確認メールが届きます。メール内リンクから登録を完了してください。確認メールが届かない場合は、Supabase Dashboard の Authentication → Providers → Email の設定を確認してください。
+
+### セキュリティ
+
+フロントエンドには公開用 publishable key のみを設定しています。service_role / secret key は使用していません。企業データテーブルにはRLSを有効化し、`auth.uid() = user_id` の条件で各ユーザーの行を分離しています。
 
 ## 評価配点
 
