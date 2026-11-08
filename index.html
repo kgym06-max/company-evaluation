@@ -19,16 +19,12 @@
 </div>
 <div class="modal" id="editor"><div class="dialog"><div class="dialog-head"><div><div class="eyebrow">COMPANY EVALUATION / EDIT</div><h2 id="editorTitle">企業情報を入力・評価</h2></div><div class="actions"><button id="closeBtn">← 一覧に戻る</button><button class="primary" id="saveBtn">クラウドに保存</button></div></div><div class="dialog-body" id="editorBody"></div></div></div>
 <div class="toast" id="toast"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* Global UI error reporting */
-window.addEventListener('error',event=>console.error('ページ内エラー:',event.error||event.message));
-window.addEventListener('unhandledrejection',event=>console.error('非同期処理エラー:',event.reason));
-/* Reliable add-company click path: independent of later event registration. */
+/* Install the add-button handler before loading any external library. */
 window.__openCompanyEditor=function(){
   try {
-    if(typeof openEditor!=='function') throw new Error('企業入力機能の初期化が完了していません。ページを再読み込みしてください。');
-    openEditor();
+    if(typeof window.openEditor!=='function') throw new Error('画面の初期化がまだ終わっていません。数秒待ってから再度押してください。');
+    window.openEditor();
     const modal=document.getElementById('editor');
     if(!modal.classList.contains('open')) throw new Error('入力画面を開けませんでした。');
   } catch(error) {
@@ -41,6 +37,12 @@ window.__openCompanyEditor=function(){
     body.appendChild(message);
   }
 };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Global UI error reporting */
+window.addEventListener('error',event=>console.error('ページ内エラー:',event.error||event.message));
+window.addEventListener('unhandledrejection',event=>console.error('非同期処理エラー:',event.reason));
 const SUPABASE_URL="https://wlbwxmkysewnzperldpe.supabase.co";
 const SUPABASE_KEY="sb_publishable_4jSzWyMdJ2rLx5r9DwW_Nw_SlitGw20";
 const supabase=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
