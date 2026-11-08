@@ -14,7 +14,7 @@
 <header class="top"><div class="brand"><div class="logo">CE</div><div><div class="eyebrow">CAREER INTELLIGENCE</div><h1>COMPANY EVALUATION</h1><p>企業を、条件だけでなく中身で見極める。</p></div></div><div class="actions"><span id="syncStatus" class="tag">クラウド未接続</span><button id="authToggle" type="button">ログイン</button><button class="primary" id="addBtn" type="button" onclick="window.__openCompanyEditor()">＋ 企業を追加</button></div></header>
 <section class="hero"><div><div class="eyebrow">YOUR CAREER, YOUR CRITERIA</div><h2>納得できる就職先を、<br>自分の基準で選ぶ。</h2><p>給与・福利厚生・将来性。9つの視点から企業を比較。</p></div><div class="stats"><div class="stat"><b id="companyCount">0</b><span>登録企業</span></div><div class="stat"><b id="ratedCount">0</b><span>評価完了</span></div></div></section>
 <div class="toolbar"><input class="field search" id="search" placeholder="企業名・業界で検索"><select class="field" id="sort"><option value="score">総合評価順</option><option value="name">企業名順</option><option value="recent">更新順</option></select><select class="field" id="filter"><option value="all">すべて</option><option value="complete">評価完了</option><option value="incomplete">未評価あり</option></select></div>
-<section id="authPanel" class="company hidden" style="margin:0 0 18px"><div class="section-title"><div><h3>アカウント・クラウド保存</h3><p id="authMessage">ログインすると、企業データをアカウントに紐づけて保存できます。</p></div><button id="authClose">閉じる</button></div><div class="grid2"><div class="formrow"><label>メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="formrow"><label>パスワード</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上"></div></div><div class="actions" style="margin-top:12px"><button class="primary" id="signInBtn">ログイン</button><button id="signUpBtn">新規登録</button><button id="resetBtn">パスワード再設定</button><button id="resendConfirmBtn" class="hidden">確認メールを再送</button><button id="signOutBtn" class="hidden">ログアウト</button></div><p id="authFeedback" class="footnote" role="status" aria-live="polite">登録時に確認メールが届く場合があります。クラウド保存にはログインが必要です。</p></section><main class="company-grid" id="companyGrid"></main>
+<section id="authPanel" class="company hidden" style="margin:0 0 18px"><div class="section-title"><div><h3>アカウント・クラウド保存</h3><p id="authMessage">ログインすると、企業データをアカウントに紐づけて保存できます。</p></div><button id="authClose">閉じる</button></div><div class="grid2"><div class="formrow"><label>メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="formrow"><label>パスワード</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上"></div></div><div class="actions" style="margin-top:12px"><button class="primary" id="signInBtn">ログイン</button><button id="signUpBtn">新規登録</button><button id="resetBtn">パスワード再設定</button><button id="resendConfirmBtn" class="hidden">確認メールを再送</button><button id="signOutBtn" class="hidden">ログアウト</button></div><p id="authFeedback" class="footnote" role="status" aria-live="polite">新規登録後の確認リンクは、この企業評価アプリに戻るように設定しています。クラウド保存にはログインが必要です。</p></section><main class="company-grid" id="companyGrid"></main>
 <p class="footnote" style="margin-top:24px">企業データはパソコン内には保存しません。ログイン後、クラウドに保存して別端末からも利用できます。</p>
 </div>
 <div class="modal" id="editor"><div class="dialog"><div class="dialog-head"><div><div class="eyebrow">COMPANY EVALUATION / EDIT</div><h2 id="editorTitle">企業情報を入力・評価</h2></div><div class="actions"><button id="closeBtn">← 一覧に戻る</button><button class="primary" id="saveBtn">保存</button></div></div><div class="dialog-body" id="editorBody"></div></div></div>
@@ -73,7 +73,8 @@ async function signUp(){
  const btn=document.getElementById('signUpBtn'),resend=document.getElementById('resendConfirmBtn');
  btn.disabled=true;btn.textContent='登録中…';
  try{
-  const {data,error}=await supabase.auth.signUp({email,password});
+  const redirectTo=window.location.origin+window.location.pathname;
+  const {data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}});
   if(error)throw error;
   if(!data?.user)throw new Error('登録結果を確認できませんでした。少し時間をおいて再度お試しください。');
   if(Array.isArray(data.user.identities)&&data.user.identities.length===0){
@@ -85,7 +86,7 @@ async function signUp(){
    authFeedback('アカウントを作成し、ログインしました。企業データをクラウドに保存できます。');
   }else{
    pendingSignupEmail=email;resend.classList.remove('hidden');
-   authFeedback('仮登録が完了しました。'+email+' 宛ての確認メールを開き、登録を完了してください。届かない場合は迷惑メールフォルダを確認するか、「確認メールを再送」を押してください。');
+   authFeedback('仮登録が完了しました。'+email+' 宛ての確認メールを開いてください。リンクを開くと企業評価アプリに戻ります。404になる場合は、Supabase側のURL許可設定も確認が必要です。');
   }
  }catch(e){console.error('新規登録エラー',e);authFeedback(authErrorMessage(e),true)}
  finally{btn.disabled=false;btn.textContent='新規登録'}
@@ -96,14 +97,14 @@ async function resendSignupConfirmation(){
  if(!email){authFeedback('登録時に使用したメールアドレスを入力してください。',true);return}
  const btn=document.getElementById('resendConfirmBtn');btn.disabled=true;btn.textContent='送信中…';
  try{
-  const {error}=await supabase.auth.resend({type:'signup',email});
+  const {error}=await supabase.auth.resend({type:'signup',email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
   if(error)throw error;
   pendingSignupEmail=email;
   authFeedback(email+' 宛てに確認メールを再送しました。受信箱と迷惑メールフォルダをご確認ください。');
  }catch(e){console.error('確認メール再送エラー',e);authFeedback(authErrorMessage(e),true)}
  finally{btn.disabled=false;btn.textContent='確認メールを再送'}
 }
-async function resetPassword(){const email=document.getElementById('authEmail').value.trim().toLowerCase();if(!email){authFeedback('先にメールアドレスを入力してください。',true);return}try{const {error}=await supabase.auth.resetPasswordForEmail(email);if(error)throw error;authFeedback('パスワード再設定メールを送信しました。受信箱をご確認ください。')}catch(e){authFeedback(authErrorMessage(e),true)}}
+async function resetPassword(){const email=document.getElementById('authEmail').value.trim().toLowerCase();if(!email){authFeedback('先にメールアドレスを入力してください。',true);return}try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});if(error)throw error;authFeedback('パスワード再設定メールを送信しました。受信箱をご確認ください。')}catch(e){authFeedback(authErrorMessage(e),true)}}
 async function deleteCloudCompany(cid){if(!currentUser||!supabase)return;const {error}=await supabase.from('companies').delete().eq('user_id',currentUser.id).eq('client_id',cid);if(error){console.error(error);setSyncStatus('削除同期エラー')}}
 function id(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
