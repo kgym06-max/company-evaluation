@@ -68,7 +68,7 @@ async function signUp(){
  const email=document.getElementById('authEmail').value.trim().toLowerCase();
  const password=document.getElementById('authPassword').value;
  if(!supabase){authFeedback('認証サービスを読み込めません。ページを再読み込みしてください。',true);return}
- if(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){authFeedback('有効なメールアドレスを入力してください。',true);document.getElementById('authEmail').focus();return}
+ if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){authFeedback('有効なメールアドレスを入力してください。',true);document.getElementById('authEmail').focus();return}
  if(password.length<8){authFeedback('パスワードは8文字以上で入力してください。',true);document.getElementById('authPassword').focus();return}
  const btn=document.getElementById('signUpBtn'),resend=document.getElementById('resendConfirmBtn');
  btn.disabled=true;btn.textContent='登録中…';
