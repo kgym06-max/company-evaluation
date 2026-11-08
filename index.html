@@ -11,7 +11,7 @@
 </head>
 <body>
 <div class="wrap">
-<header class="top"><div class="brand"><div class="logo">CE</div><div><div class="eyebrow">CAREER INTELLIGENCE</div><h1>COMPANY EVALUATION</h1><p>企業を、条件だけでなく中身で見極める。</p></div></div><div class="actions"><span id="syncStatus" class="tag">ローカル保存</span><button id="authToggle">ログイン</button><button class="primary" id="addBtn">＋ 企業を追加</button></div></header>
+<header class="top"><div class="brand"><div class="logo">CE</div><div><div class="eyebrow">CAREER INTELLIGENCE</div><h1>COMPANY EVALUATION</h1><p>企業を、条件だけでなく中身で見極める。</p></div></div><div class="actions"><span id="syncStatus" class="tag">ローカル保存</span><button id="authToggle" type="button" onclick="document.getElementById('authPanel').classList.toggle('hidden')">ログイン</button><button class="primary" id="addBtn" type="button" onclick="if(window.openEditor){window.openEditor()}else{document.getElementById('editor').classList.add('open');document.getElementById('editorBody').textContent='入力機能の読み込みに失敗しました。再読み込みしてください。'}">＋ 企業を追加</button></div></header>
 <section class="hero"><div><div class="eyebrow">YOUR CAREER, YOUR CRITERIA</div><h2>納得できる就職先を、<br>自分の基準で選ぶ。</h2><p>給与・福利厚生・将来性。9つの視点から企業を比較。</p></div><div class="stats"><div class="stat"><b id="companyCount">0</b><span>登録企業</span></div><div class="stat"><b id="ratedCount">0</b><span>評価完了</span></div></div></section>
 <div class="toolbar"><input class="field search" id="search" placeholder="企業名・業界で検索"><select class="field" id="sort"><option value="score">総合評価順</option><option value="name">企業名順</option><option value="recent">更新順</option></select><select class="field" id="filter"><option value="all">すべて</option><option value="complete">評価完了</option><option value="incomplete">未評価あり</option></select></div>
 <section id="authPanel" class="company hidden" style="margin:0 0 18px"><div class="section-title"><div><h3>アカウント・クラウド保存</h3><p id="authMessage">ログインすると、企業データをアカウントに紐づけて保存できます。</p></div><button id="authClose">閉じる</button></div><div class="grid2"><div class="formrow"><label>メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="formrow"><label>パスワード</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上"></div></div><div class="actions" style="margin-top:12px"><button class="primary" id="signInBtn">ログイン</button><button id="signUpBtn">新規登録</button><button id="resetBtn">パスワード再設定</button><button id="signOutBtn" class="hidden">ログアウト</button></div><p class="footnote">登録時に確認メールが届く場合があります。クラウド保存にはログインが必要です。</p></section><main class="company-grid" id="companyGrid"></main>
@@ -21,32 +21,9 @@
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* Register the two primary controls immediately so later initialization errors
-   cannot leave the whole page unresponsive. */
-document.getElementById('authToggle')?.addEventListener('click',()=>{
-  const panel=document.getElementById('authPanel');
-  if(panel) panel.classList.toggle('hidden');
-});
-document.getElementById('addBtn')?.addEventListener('click',()=>{
-  const modal=document.getElementById('editor');
-  if(modal) modal.classList.add('open');
-  try {
-    if(typeof openEditor==='function') openEditor();
-    else throw new Error('企業入力画面の処理を読み込めませんでした');
-  } catch(error) {
-    console.error('企業追加画面の表示エラー:',error);
-    const body=document.getElementById('editorBody');
-    if(body) body.innerHTML='<p style="color:#ff9aa2">画面の読み込みでエラーが発生しました。ページを再読み込みしてください。</p><pre style="white-space:pre-wrap;color:#ffcf9d"></pre>';
-    const detail=body?.querySelector('pre');
-    if(detail) detail.textContent=String(error);
-  }
-});
-window.addEventListener('error',event=>{
-  console.error('ページ内エラー:',event.error||event.message);
-});
-window.addEventListener('unhandledrejection',event=>{
-  console.error('非同期処理エラー:',event.reason);
-});
+/* Global UI error reporting */
+window.addEventListener('error',event=>console.error('ページ内エラー:',event.error||event.message));
+window.addEventListener('unhandledrejection',event=>console.error('非同期処理エラー:',event.reason));
 const SUPABASE_URL="https://wlbwxmkysewnzperldpe.supabase.co";
 const SUPABASE_KEY="sb_publishable_4jSzWyMdJ2rLx5r9DwW_Nw_SlitGw20";
 const supabase=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -73,6 +50,7 @@ function grade(n){if(n>=95)return'SS';if(n>=90)return'S';if(n>=85)return'A+';if(
 function render(){let q=document.getElementById('search').value.toLowerCase(),f=document.getElementById('filter').value,s=document.getElementById('sort').value;let list=companies.filter(c=>(c.name+' '+(c.industry||'')).toLowerCase().includes(q)).filter(c=>f==='all'||(f==='complete'?totals(c).complete:!totals(c).complete));list.sort((a,b)=>s==='name'?a.name.localeCompare(b.name,'ja'):s==='recent'?(b.updated||0)-(a.updated||0):totals(b).points-totals(a).points);document.getElementById('companyCount').textContent=companies.length;document.getElementById('ratedCount').textContent=companies.filter(c=>totals(c).complete).length;let grid=document.getElementById('companyGrid');if(!list.length){grid.innerHTML='<div class="empty"><div style="font-size:28px;margin-bottom:8px">＋</div><b>企業データはまだありません</b><p>気になる企業を登録して、比較を始めましょう。</p><button class="primary" onclick="openEditor()">最初の企業を追加</button></div>';return}grid.innerHTML=list.map(c=>{let t=totals(c);return '<article class="company"><div class="company-head"><div><h3>'+esc(c.name)+'</h3><div class="muted" style="font-size:12px;margin-top:3px">'+esc(c.industry||'業界未設定')+'</div></div><span class="tag">'+(t.complete?'評価完了':'評価中')+'</span></div><div class="scoreline"><strong>'+t.points.toFixed(1)+'</strong><span class="muted">/ 100点</span><span class="grade">'+(t.complete?grade(t.points):'暫定')+'</span></div><div class="bar"><i style="width:'+Math.min(100,t.points)+'%"></i></div><div class="card-foot"><span class="muted" style="font-size:11px">'+t.done+'/9項目評価済み · '+t.weight+'点分</span><div class="actions"><button onclick="openEditor(\''+c.id+'\')">詳細・編集</button><button class="subtle danger" onclick="removeCompany(\''+c.id+'\')">削除</button></div></div></article>'}).join('')}
 function blank(){return {id:id(),name:'',industry:'',url:'',memo:'',scores:Array(9).fill(null),notes:Array.from({length:9},()=>({text:'',url:'',date:'',type:'その他'})),benefits:[],updated:Date.now()}}
 function openEditor(cid){editing=cid?companies.find(x=>x.id===cid):blank();if(!editing)return;document.getElementById('editor').classList.add('open');document.getElementById('editorTitle').textContent=cid?'企業情報を編集':'企業を追加';buildEditor()}
+window.openEditor=openEditor;
 function closeEditor(){document.getElementById('editor').classList.remove('open');editing=null}
 function buildEditor(){let c=editing,t=totals(c);let h='<section class="section"><div class="section-title"><div><h3>基本情報</h3><p>企業を識別するための情報</p></div></div><div class="grid2"><div class="formrow"><label>企業名 *</label><input id="coName" value="'+esc(c.name)+'" placeholder="例：株式会社〇〇"></div><div class="formrow"><label>業界・分野</label><input id="coIndustry" value="'+esc(c.industry)+'" placeholder="例：電気設備・メーカー"></div><div class="formrow"><label>公式サイト・採用ページ</label><input id="coUrl" value="'+esc(c.url)+'" placeholder="https://..."></div><div class="formrow"><label>採用難易度（点数には含まない）</label><input id="coDifficulty" value="'+esc(c.difficulty||'')+'" placeholder="例：やや高い / 偏差値目安など"></div></div></section>';
 h+='<section class="section"><div class="section-title"><div><h3>総合評価ビジュアル</h3><p>未評価項目は0点として扱わず、評価済みの配点だけで暫定表示します。</p></div></div><div class="visual"><div class="chart-wrap"><canvas id="radar" width="260" height="240"></canvas></div><div><div class="overall"><div><div class="muted" style="font-size:11px">総合スコア</div><strong id="totalScore">'+t.points.toFixed(1)+'</strong><span class="muted"> / 100</span></div><div><div class="grade" id="totalGrade">'+(t.complete?grade(t.points):'暫定')+'</div><div class="muted" style="font-size:11px" id="coverage">評価済み '+t.weight+' / 100点分</div></div></div><div class="gauges" id="gauges"></div></div></div></section>';
