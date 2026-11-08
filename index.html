@@ -17,7 +17,7 @@
 <section id="authPanel" class="company hidden" style="margin:0 0 18px"><div class="section-title"><div><h3>アカウント・クラウド保存</h3><p id="authMessage">ログインすると、企業データをアカウントに紐づけて保存できます。</p></div><button id="authClose">閉じる</button></div><div class="grid2"><div class="formrow"><label>メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="formrow"><label>パスワード</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上"></div></div><div class="actions" style="margin-top:12px"><button class="primary" id="signInBtn">ログイン</button><button id="signUpBtn">新規登録</button><button id="resetBtn">パスワード再設定</button><button id="resendConfirmBtn" class="hidden">確認メールを再送</button><button id="signOutBtn" class="hidden">ログアウト</button></div><p id="authFeedback" class="footnote" role="status" aria-live="polite">登録時に確認メールが届く場合があります。クラウド保存にはログインが必要です。</p></section><main class="company-grid" id="companyGrid"></main>
 <p class="footnote" style="margin-top:24px">企業データはパソコン内には保存しません。ログイン後、クラウドに保存して別端末からも利用できます。</p>
 </div>
-<div class="modal" id="editor"><div class="dialog"><div class="dialog-head"><div><div class="eyebrow">COMPANY EVALUATION / EDIT</div><h2 id="editorTitle">企業情報を入力・評価</h2></div><div class="actions"><button id="closeBtn">← 一覧に戻る</button><button class="primary" id="saveBtn">クラウドに保存</button></div></div><div class="dialog-body" id="editorBody"></div></div></div>
+<div class="modal" id="editor"><div class="dialog"><div class="dialog-head"><div><div class="eyebrow">COMPANY EVALUATION / EDIT</div><h2 id="editorTitle">企業情報を入力・評価</h2></div><div class="actions"><button id="closeBtn">← 一覧に戻る</button><button class="primary" id="saveBtn">保存</button></div></div><div class="dialog-body" id="editorBody"></div></div></div>
 <div class="toast" id="toast"></div>
 <script>
 /* Install the add-button handler before loading any external library. */
@@ -38,7 +38,7 @@ window.__openCompanyEditor=function(){
   }
 };
 </script>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.initializeSupabaseClient&&window.initializeSupabaseClient()" onerror="window.__supabaseLoadFailed&&window.__supabaseLoadFailed()"></script>
+
 <script>
 /* Global UI error reporting */
 window.addEventListener('error',event=>console.error('ページ内エラー:',event.error||event.message));
@@ -46,7 +46,7 @@ window.addEventListener('unhandledrejection',event=>console.error('非同期処�
 const SUPABASE_URL="https://wlbwxmkysewnzperldpe.supabase.co";
 const SUPABASE_KEY="sb_publishable_4jSzWyMdJ2rLx5r9DwW_Nw_SlitGw20";
 let supabase=null;
-let currentUser=null,cloudBusy=false;
+let currentUser=null,cloudBusy=false,authReady=false;
 const KEY='companyEvaluation.v1';
 const categories=[['給与・年収',20],['昇進・昇給制度',16],['福利厚生',18],['労働環境',10],['社内評価・口コミ',10],['将来性・安定性',10],['仕事内容・専門性',8],['キャリア形成',5],['その他の魅力',3]];
 const benefits=['住宅・住居','休日・休暇','賞与・手当','退職金・資産形成','資格・研修','育児・介護','健康・食事','働き方','その他'];
@@ -129,9 +129,46 @@ function drawVisual(){let c=editing,t=totals(c),g=document.getElementById('gauge
 function addBenefit(){editing.benefits.push({category:'その他',name:'',value:'',condition:''});renderBenefits()}
 function renderBenefits(){let el=document.getElementById('benefitList');if(!el)return;el.innerHTML=editing.benefits.length?editing.benefits.map((b,i)=>'<div class="benefit"><select onchange="editing.benefits['+i+'].category=this.value">'+benefits.map(x=>'<option '+(b.category===x?'selected':'')+'>'+x+'</option>').join('')+'</select><input class="wide" placeholder="制度名" value="'+esc(b.name)+'" oninput="editing.benefits['+i+'].name=this.value"><input class="wide" placeholder="金額・日数・内容" value="'+esc(b.value)+'" oninput="editing.benefits['+i+'].value=this.value"><input class="wide" placeholder="対象条件・補足" value="'+esc(b.condition)+'" oninput="editing.benefits['+i+'].condition=this.value"><button class="danger" onclick="editing.benefits.splice('+i+',1);renderBenefits()">削除</button></div>').join(''):'<div class="empty" style="padding:20px">福利厚生の制度はまだ登録されていません。</div>'}
 function collect(){let c=editing;c.name=document.getElementById('coName').value.trim();c.industry=document.getElementById('coIndustry').value.trim();c.url=document.getElementById('coUrl').value.trim();c.difficulty=document.getElementById('coDifficulty').value.trim();c.memo=document.getElementById('coMemo').value;c.benefitMemo=document.getElementById('benefitMemo').value;categories.forEach((_,i)=>{let el=document.getElementById('noteText'+i);c.notes[i]={text:el.value,url:document.getElementById('noteUrl'+i).value,date:document.getElementById('noteDate'+i).value,type:document.getElementById('noteType'+i).value}});c.updated=Date.now();return c}
-async function save(){if(!editing)return;let c;try{c=collect()}catch(e){console.error('入力内容の取得エラー',e);alert('入力内容を読み取れませんでした。画面を再読み込みしてください。');return}if(!c.name){alert('企業名を入力してください');document.getElementById('coName')?.focus();return}if(!currentUser||!supabase){document.getElementById('authPanel').classList.remove('hidden');document.getElementById('authPanel').scrollIntoView({behavior:'smooth',block:'center'});authFeedback('クラウド保存にはログインが必要です。ログイン後、もう一度保存してください。',true);return}const userId=currentUser.id,btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='保存中…';setSyncStatus('クラウドに保存中…');try{const {error}=await supabase.from('companies').upsert({user_id:userId,client_id:c.id,data:c,updated_at:new Date().toISOString()},{onConflict:'user_id,client_id'});if(error)throw error;if(currentUser?.id!==userId)throw new Error('ログイン状態が変わったため保存結果を反映できません。再ログインしてください。');let i=companies.findIndex(x=>x.id===c.id);if(i<0)companies.unshift(c);else companies[i]=c;render();closeEditor();setSyncStatus('クラウド同期済み');toast('クラウドに保存しました')}catch(e){console.error('クラウド保存エラー',e);setSyncStatus('保存失敗');alert('クラウド保存に失敗しました：'+(e?.message||'通信エラー'))}finally{btn.disabled=false;btn.textContent='クラウドに保存'}}
+async function save(){if(!editing)return;if(!supabase){authFeedback('認証サービスを読み込み中、または読み込みに失敗しています。少し待ってから再度お試しください。',true);setSyncStatus('認証サービス未接続');return}if(!authReady){authFeedback('ログイン状態を確認しています。数秒待ってから「保存」を押してください。',true);setSyncStatus('認証確認中…');return}let c;try{c=collect()}catch(e){console.error('入力内容の取得エラー',e);alert('入力内容を読み取れませんでした。画面を再読み込みしてください。');return}if(!c.name){alert('企業名を入力してください');document.getElementById('coName')?.focus();return}if(!currentUser||!supabase){document.getElementById('authPanel').classList.remove('hidden');document.getElementById('authPanel').scrollIntoView({behavior:'smooth',block:'center'});authFeedback('保存するにはログインが必要です。ログイン後、もう一度保存してください。',true);return}const userId=currentUser.id,btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='保存中…';setSyncStatus('クラウドに保存中…');try{const {error}=await supabase.from('companies').upsert({user_id:userId,client_id:c.id,data:c,updated_at:new Date().toISOString()},{onConflict:'user_id,client_id'});if(error)throw error;if(currentUser?.id!==userId)throw new Error('ログイン状態が変わったため保存結果を反映できません。再ログインしてください。');let i=companies.findIndex(x=>x.id===c.id);if(i<0)companies.unshift(c);else companies[i]=c;render();closeEditor();setSyncStatus('クラウド同期済み');toast('保存しました')}catch(e){console.error('クラウド保存エラー',e);setSyncStatus('保存失敗');alert('クラウド保存に失敗しました：'+(e?.message||'通信エラー'))}finally{btn.disabled=false;btn.textContent='保存'}}
 async function removeCompany(cid){const c=companies.find(x=>x.id===cid);if(!c||!confirm('「'+c.name+'」を削除しますか？この操作は元に戻せません。'))return;if(!currentUser||!supabase){alert('削除するにはログインしてください。');return}try{const {error}=await supabase.from('companies').delete().eq('user_id',currentUser.id).eq('client_id',cid);if(error)throw error;companies=companies.filter(x=>x.id!==cid);render();setSyncStatus('クラウド同期済み');toast('クラウドから削除しました')}catch(e){console.error('クラウド削除エラー',e);setSyncStatus('削除失敗');alert('削除に失敗しました：'+(e?.message||'通信エラー'))}}
 function toast(s){let e=document.getElementById('toast');e.textContent=s;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
-document.getElementById('authClose').onclick=()=>document.getElementById('authPanel').classList.add('hidden');document.getElementById('authToggle').onclick=()=>{document.getElementById('authPanel').classList.toggle('hidden');document.getElementById('authPanel').scrollIntoView({behavior:'smooth',block:'nearest'})};/* Header add button calls window.__openCompanyEditor directly. */document.getElementById('signInBtn').onclick=signIn;document.getElementById('signUpBtn').onclick=signUp;document.getElementById('resetBtn').onclick=resetPassword;document.getElementById('resendConfirmBtn').onclick=resendSignupConfirmation;document.getElementById('signOutBtn').onclick=async()=>{if(supabase){const {error}=await supabase.auth.signOut();if(error)authFeedback(authErrorMessage(error),true)}};window.initializeSupabaseClient=function(){if(!window.supabase?.createClient){setSyncStatus('認証ライブラリ未読込');authFeedback('認証ライブラリの読み込みに失敗しました。ログイン機能は現在利用できませんが、画面操作は可能です。',true);return}try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);supabase.auth.onAuthStateChange((_event,session)=>{const nextUser=session?.user||null;const changed=currentUser?.id!==nextUser?.id;if(changed){companies=[];render()}currentUser=nextUser;updateAuthUI();if(currentUser&&changed)setTimeout(()=>pullCloudData(),0)});supabase.auth.getSession().then(({data,error})=>{if(error)throw error;currentUser=data.session?.user||null;updateAuthUI();if(currentUser)pullCloudData()}).catch(e=>{console.error('セッション確認エラー',e);authFeedback(authErrorMessage(e),true)})}catch(e){console.error('Supabase初期化エラー',e);setSyncStatus('認証初期化エラー');authFeedback('認証機能の初期化に失敗しました：'+(e?.message||e),true)}};window.__supabaseLoadFailed=function(){setSyncStatus('認証ライブラリ読込失敗');const el=document.getElementById('authFeedback');if(el)el.textContent='認証ライブラリを読み込めませんでした。ネットワーク制限の可能性があります。企業追加などの画面操作は利用できます。'};document.getElementById('closeBtn').onclick=closeEditor;document.getElementById('saveBtn').onclick=save;['search','sort','filter'].forEach(x=>document.getElementById(x).addEventListener('input',render));document.getElementById('editor').addEventListener('click',e=>{if(e.target.id==='editor')closeEditor()});window.openEditor=openEditor;window.removeCompany=removeCompany;window.addBenefit=addBenefit;window.renderBenefits=renderBenefits;window.updateScore=updateScore;window.toggleNote=toggleNote;window.showRubric=showRubric;render();
+document.getElementById('authClose').onclick=()=>document.getElementById('authPanel').classList.add('hidden');document.getElementById('authToggle').onclick=()=>{document.getElementById('authPanel').classList.toggle('hidden');document.getElementById('authPanel').scrollIntoView({behavior:'smooth',block:'nearest'})};/* Header add button calls window.__openCompanyEditor directly. */document.getElementById('signInBtn').onclick=signIn;document.getElementById('signUpBtn').onclick=signUp;document.getElementById('resetBtn').onclick=resetPassword;document.getElementById('resendConfirmBtn').onclick=resendSignupConfirmation;document.getElementById('signOutBtn').onclick=async()=>{if(supabase){const {error}=await supabase.auth.signOut();if(error)authFeedback(authErrorMessage(error),true)}};window.initializeSupabaseClient=function(){if(!window.supabase?.createClient){setSyncStatus('認証ライブラリ未読込');authFeedback('認証ライブラリの読み込みに失敗しました。ログイン機能は現在利用できませんが、画面操作は可能です。',true);return}try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);supabase.auth.onAuthStateChange((_event,session)=>{authReady=true;const nextUser=session?.user||null;const changed=currentUser?.id!==nextUser?.id;if(changed){companies=[];render()}currentUser=nextUser;updateAuthUI();if(currentUser&&changed)setTimeout(()=>pullCloudData(),0)});supabase.auth.getSession().then(({data,error})=>{if(error)throw error;currentUser=data.session?.user||null;authReady=true;updateAuthUI();if(currentUser)pullCloudData()}).catch(e=>{console.error('セッション確認エラー',e);authFeedback(authErrorMessage(e),true)})}catch(e){console.error('Supabase初期化エラー',e);setSyncStatus('認証初期化エラー');authFeedback('認証機能の初期化に失敗しました：'+(e?.message||e),true)}};window.__supabaseLoadFailed=function(){setSyncStatus('認証ライブラリ読込失敗');const el=document.getElementById('authFeedback');if(el)el.textContent='認証ライブラリを読み込めませんでした。ネットワーク制限の可能性があります。企業追加などの画面操作は利用できます。'};document.getElementById('closeBtn').onclick=closeEditor;document.getElementById('saveBtn').onclick=save;['search','sort','filter'].forEach(x=>document.getElementById(x).addEventListener('input',render));document.getElementById('editor').addEventListener('click',e=>{if(e.target.id==='editor')closeEditor()});window.openEditor=openEditor;window.removeCompany=removeCompany;window.addBenefit=addBenefit;window.renderBenefits=renderBenefits;window.updateScore=updateScore;window.toggleNote=toggleNote;window.showRubric=showRubric;render();
+</script>
+<script>
+/* Load the Supabase SDK with a second CDN as a fallback. */
+(function(){
+ const sources=[
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://unpkg.com/@supabase/supabase-js@2'
+ ];
+ let index=0;
+ setSyncStatus('認証サービス読み込み中…');
+ function tryNext(){
+  if(index>=sources.length){
+   window.__supabaseLoadFailed();
+   return;
+  }
+  const src=sources[index++];
+  const tag=document.createElement('script');
+  tag.src=src;
+  tag.async=true;
+  tag.onload=function(){
+   if(window.supabase&&typeof window.supabase.createClient==='function'){
+    window.initializeSupabaseClient();
+   }else{
+    tag.remove();
+    tryNext();
+   }
+  };
+  tag.onerror=function(){tag.remove();tryNext()};
+  document.head.appendChild(tag);
+ }
+ window.__supabaseLoadFailed=function(){
+  setSyncStatus('認証サービス読み込み失敗');
+  const el=document.getElementById('authFeedback');
+  if(el)el.textContent='認証サービスを読み込めませんでした。ネットワークまたはブラウザの拡張機能がCDN通信を妨げている可能性があります。ページを再読み込みしても続く場合は、その表示を教えてください。';
+ };
+ tryNext();
+})();
 </script>
 </body></html>
