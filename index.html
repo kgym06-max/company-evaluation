@@ -62,7 +62,7 @@ async function pullCloudData(){if(!currentUser||!supabase)return;const userId=cu
 function updateAuthUI(){const logged=!!currentUser;document.getElementById('authToggle').textContent=logged?'アカウント':'ログイン';document.getElementById('signInBtn').classList.toggle('hidden',logged);document.getElementById('signUpBtn').classList.toggle('hidden',logged);document.getElementById('resetBtn').classList.toggle('hidden',logged);document.getElementById('signOutBtn').classList.toggle('hidden',!logged);document.getElementById('authMessage').textContent=logged?'ログイン中：'+currentUser.email+'。企業データはクラウドに保存されます。':'保存先はクラウドです。保存するにはログインしてください。';setSyncStatus(logged?'クラウド接続中':'ログインしてクラウド保存') }
 function authFeedback(message,isError=false){const el=document.getElementById('authFeedback');if(el){el.textContent=message;el.style.color=isError?'#ff9aa2':'#93a4ba'}}
 async function signIn(){const email=document.getElementById('authEmail').value.trim().toLowerCase(),password=document.getElementById('authPassword').value; if(!supabase){authFeedback('認証サービスを読み込めません。ページを再読み込みしてください。',true);return}if(!email||!password){authFeedback('メールアドレスとパスワードを入力してください。',true);return}const btn=document.getElementById('signInBtn');btn.disabled=true;btn.textContent='ログイン中…';try{const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;authFeedback('ログインしました。クラウドデータを読み込んでいます。')}catch(e){console.error('ログインエラー',e);authFeedback(authErrorMessage(e),true)}finally{btn.disabled=false;btn.textContent='ログイン'}}
-function authErrorMessage(e){const m=String(e?.message||e||'');if(/Invalid login credentials/i.test(m))return'メールアドレスまたはパスワードが違います。新規登録済みか、パスワード再設定を確認してください。';if(/Email not confirmed/i.test(m))return'メールアドレスの確認が完了していません。受信メールの確認リンクを開いてください。';if(/rate limit|too many requests|email rate limit/i.test(m))return'確認メールの送信回数が上限に達しました。時間をおいて再度お試しください。';if(/signup.*disabled|signups.*not.*allowed|disable_signup/i.test(m))return'現在、新規登録が停止されています。認証サービス側の「新規ユーザー登録を許可」を有効にする必要があります。';if(/email.*provider.*disabled/i.test(m))return'メール認証が無効になっています。認証サービス側でメール認証を有効にする必要があります。';if(/password/i.test(m))return'パスワードの条件を満たしていません。8文字以上で設定してください。';if(/redirect|url/i.test(m))return'認証後の戻り先URLが許可されていません。管理側のURL設定を確認します。';return'認証に失敗しました：'+m}
+function authErrorMessage(e){const m=String(e?.message||e||'');if(/Invalid login credentials/i.test(m))return'メールアドレスまたはパスワードが違います。新規登録済みか、パスワード再設定を確認してください。';if(/Email not confirmed/i.test(m))return'メールアドレスの確認が完了していません。受信メールの確認リンクを開いてください。';if(/rate limit|too many requests|email rate limit/i.test(m))return'確認メールの送信回数が上限に達しました。時間をおいて再度お試しください。';if(/signup.*disabled|signups.*not.*allowed|disable_signup/i.test(m))return'現在、新規登録が停止されています。認証サービス側の「新規ユーザー登録を許可」を有効にする必要があります。';if(/email.*provider.*disabled/i.test(m))return'メール認証が無効になっています。認証サービス側でメール認証を有効にする必要があります。';if(/password/i.test(m))return'パスワードの条件を満たしていません。8文字以上で設定してください。';if(/redirect|url/i.test(m))return'認証後の戻り先URLが許可されていません。管理側のURL設定を確認します。';return'認証に失敗しました：'+m+(e?.status?'（HTTP '+e.status+'）':'')+(e?.code?'［'+e.code+'］':'')}
 let pendingSignupEmail='';
 async function signUp(){
  const email=document.getElementById('authEmail').value.trim().toLowerCase();
@@ -134,41 +134,34 @@ async function removeCompany(cid){const c=companies.find(x=>x.id===cid);if(!c||!
 function toast(s){let e=document.getElementById('toast');e.textContent=s;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
 document.getElementById('authClose').onclick=()=>document.getElementById('authPanel').classList.add('hidden');document.getElementById('authToggle').onclick=()=>{document.getElementById('authPanel').classList.toggle('hidden');document.getElementById('authPanel').scrollIntoView({behavior:'smooth',block:'nearest'})};/* Header add button calls window.__openCompanyEditor directly. */document.getElementById('signInBtn').onclick=signIn;document.getElementById('signUpBtn').onclick=signUp;document.getElementById('resetBtn').onclick=resetPassword;document.getElementById('resendConfirmBtn').onclick=resendSignupConfirmation;document.getElementById('signOutBtn').onclick=async()=>{if(supabase){const {error}=await supabase.auth.signOut();if(error)authFeedback(authErrorMessage(error),true)}};window.initializeSupabaseClient=function(){if(!window.supabase?.createClient){setSyncStatus('認証ライブラリ未読込');authFeedback('認証ライブラリの読み込みに失敗しました。ログイン機能は現在利用できませんが、画面操作は可能です。',true);return}try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);supabase.auth.onAuthStateChange((_event,session)=>{authReady=true;const nextUser=session?.user||null;const changed=currentUser?.id!==nextUser?.id;if(changed){companies=[];render()}currentUser=nextUser;updateAuthUI();if(currentUser&&changed)setTimeout(()=>pullCloudData(),0)});supabase.auth.getSession().then(({data,error})=>{if(error)throw error;currentUser=data.session?.user||null;authReady=true;updateAuthUI();if(currentUser)pullCloudData()}).catch(e=>{console.error('セッション確認エラー',e);authFeedback(authErrorMessage(e),true)})}catch(e){console.error('Supabase初期化エラー',e);setSyncStatus('認証初期化エラー');authFeedback('認証機能の初期化に失敗しました：'+(e?.message||e),true)}};window.__supabaseLoadFailed=function(){setSyncStatus('認証ライブラリ読込失敗');const el=document.getElementById('authFeedback');if(el)el.textContent='認証ライブラリを読み込めませんでした。ネットワーク制限の可能性があります。企業追加などの画面操作は利用できます。'};document.getElementById('closeBtn').onclick=closeEditor;document.getElementById('saveBtn').onclick=save;['search','sort','filter'].forEach(x=>document.getElementById(x).addEventListener('input',render));document.getElementById('editor').addEventListener('click',e=>{if(e.target.id==='editor')closeEditor()});window.openEditor=openEditor;window.removeCompany=removeCompany;window.addBenefit=addBenefit;window.renderBenefits=renderBenefits;window.updateScore=updateScore;window.toggleNote=toggleNote;window.showRubric=showRubric;render();
 </script>
-<script>
-/* Load the Supabase SDK with a second CDN as a fallback. */
-(function(){
+<script type="module">
+/* Load Supabase as an ES module; do not depend on a CDN-created window global. */
+(async function(){
  const sources=[
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://unpkg.com/@supabase/supabase-js@2'
+  'https://esm.sh/@supabase/supabase-js@2',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
+  'https://esm.sh/@supabase/supabase-js@2?bundle'
  ];
- let index=0;
- setSyncStatus('認証サービス読み込み中…');
- function tryNext(){
-  if(index>=sources.length){
-   window.__supabaseLoadFailed();
+ setSyncStatus('認証サービス接続中…');
+ let lastError=null;
+ for(const src of sources){
+  try{
+   const mod=await import(src);
+   if(typeof mod.createClient!=='function')throw new Error('Supabase SDKのcreateClientが見つかりません');
+   window.supabase={createClient:mod.createClient};
+   window.initializeSupabaseClient();
    return;
+  }catch(e){
+   lastError=e;
+   console.error('Supabase SDK読み込み失敗:',src,e);
   }
-  const src=sources[index++];
-  const tag=document.createElement('script');
-  tag.src=src;
-  tag.async=true;
-  tag.onload=function(){
-   if(window.supabase&&typeof window.supabase.createClient==='function'){
-    window.initializeSupabaseClient();
-   }else{
-    tag.remove();
-    tryNext();
-   }
-  };
-  tag.onerror=function(){tag.remove();tryNext()};
-  document.head.appendChild(tag);
  }
- window.__supabaseLoadFailed=function(){
-  setSyncStatus('認証サービス読み込み失敗');
-  const el=document.getElementById('authFeedback');
-  if(el)el.textContent='認証サービスを読み込めませんでした。ネットワークまたはブラウザの拡張機能がCDN通信を妨げている可能性があります。ページを再読み込みしても続く場合は、その表示を教えてください。';
- };
- tryNext();
+ window.__supabaseLoadFailed(lastError);
 })();
+window.__supabaseLoadFailed=function(error){
+ setSyncStatus('認証サービス読み込み失敗');
+ const el=document.getElementById('authFeedback');
+ if(el)el.textContent='認証ライブラリに接続できませんでした。ブラウザの通信制限またはCDN接続の問題です。詳細：'+(error?.message||'SDKの取得に失敗');
+};
 </script>
 </body></html>
